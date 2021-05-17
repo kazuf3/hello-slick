@@ -49,18 +49,20 @@ class TablesSuite extends funsuite.AnyFunSuite with BeforeAndAfter with ScalaFut
 
   //補充対象仕入先・コーヒー名・個数表示関数
   def Replenishment() = {
-    val supplierResult = db.run(coffees.filter(_.sales > 0).map(_.supID).result).futureValue    //売上があったコーヒーの仕入先ID抽出
-    val coffeeNameResult = db.run(coffees.filter(_.sales > 0).map(_.name).result).futureValue   //売上があったコーヒー仕入先名
-    val Quantity = db.run(coffees.filter(_.sales > 0).map(_.sales).result).futureValue          //補充数＝売り上げ数
-    val num = supplierResult.size
+
+    val Organize = for {
+      c <- coffees if c.sales > 0
+      s <- suppliers if c.supID === s.id 
+    }yield (s.name, c.name, c.sales)
+    
+    val OrganizeResult = db.run(Organize.result).futureValue
+
     println("\n---------------Replenishment list---------------------")                         //表示
-    for(i <- 0 to num-1 ){
-      var supName = db.run(suppliers.filter(_.id === supplierResult(i)).map(_.name).result).futureValue
-      println(" Supplier Name: " +supName.head+ ", Coffee Name: " +coffeeNameResult(i)+ ", Quantity: "+ Quantity(i))
-    }
+    for(t <- OrganizeResult) println(" Supplier Name: " +t._1+ ", Coffee Name: " +t._2+ ", Quantity: "+ t._3)
+    
     println("------------------------------------------------------\n")
   }
-
+    
  //Coffeesテーブル更新関数テスト
  test("Coffees table update works") {
     createSchema()
@@ -76,20 +78,18 @@ class TablesSuite extends funsuite.AnyFunSuite with BeforeAndAfter with ScalaFut
     createSchema()
     insertSupplier()
     insertCoffees()
-    Replenishment()
-    val supplierResult = db.run(coffees.filter(_.sales > 0).map(_.supID).result).futureValue
-    val coffeeNameResult = db.run(coffees.filter(_.sales > 0).map(_.name).result).futureValue
-    val Quantity = db.run(coffees.filter(_.sales > 0).map(_.sales).result).futureValue
-    val num = supplierResult.size
-    val supName = for {
+    val t = Replenishment()
+
+    val OrganizeTest = for {
       c <- coffees if c.sales > 0
-      s <- suppliers if c.supID === s.id  
-    }yield (s.name)
-    val supNameResult = db.run(supName.result).futureValue
-    assert(supplierResult == Vector(150, 49))                               //売上のあったサプライヤーIDが正しく抽出できていること
-    assert(supNameResult == Vector("The High Ground", "Superior Coffee"))   //補充仕入先が正しく抽出できているか
-    assert(coffeeNameResult == Vector("Espresso", "French_Roast_Decaf"))    //補充コーヒー名が正しいか
-    assert(Quantity == Vector(10, 10))                                      //補充数量が正しいか
+      s <- suppliers if c.supID === s.id 
+    }yield (s.name, c.name, c.sales)
+    
+    val OrganizeTestResult = db.run(OrganizeTest.result).futureValue
+    
+    // 売上のあったコーヒー名とその仕入先と個数が正しく入っているか
+    assert(OrganizeTestResult(0) == ("The High Ground", "Espresso", 10))
+    assert(OrganizeTestResult(1) == ("Superior Coffee", "French_Roast_Decaf", 10))
   }
 
   test("Creating the Schema works") {
