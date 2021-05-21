@@ -51,6 +51,7 @@ object HelloSlick extends App {
         suppliers.result
 
       val combinedAction: DBIO[Seq[(Int, String, String, String, String, String)]] =
+
         insertAndPrintAction andThen allSuppliersAction
 
       val combinedFuture: Future[Seq[(Int, String, String, String, String, String)]] =
